@@ -1,15 +1,16 @@
 {
   "files": {
-    "main.css": "/MLPlayground/static/css/main.34b40524.css",
-    "main.js": "/MLPlayground/static/js/main.d20dcf45.js",
+    "main.css": "/MLPlayground/static/css/main.df419376.css",
+    "main.js": "/MLPlayground/static/js/main.ebfc3a70.js",
     "static/js/453.3b74b843.chunk.js": "/MLPlayground/static/js/453.3b74b843.chunk.js",
+    "static/media/background.jpg": "/MLPlayground/static/media/background.8e5eb62b65ecd79630f1.jpg",
     "index.html": "/MLPlayground/index.html",
-    "main.34b40524.css.map": "/MLPlayground/static/css/main.34b40524.css.map",
-    "main.d20dcf45.js.map": "/MLPlayground/static/js/main.d20dcf45.js.map",
+    "main.df419376.css.map": "/MLPlayground/static/css/main.df419376.css.map",
+    "main.ebfc3a70.js.map": "/MLPlayground/static/js/main.ebfc3a70.js.map",
     "453.3b74b843.chunk.js.map": "/MLPlayground/static/js/453.3b74b843.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.34b40524.css",
-    "static/js/main.d20dcf45.js"
+    "static/css/main.df419376.css",
+    "static/js/main.ebfc3a70.js"
   ]
 }
