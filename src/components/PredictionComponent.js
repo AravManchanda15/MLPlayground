@@ -6,6 +6,15 @@ import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
+import Tooltip from '@mui/material/Tooltip';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import InputAdornment from '@mui/material/InputAdornment';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import Link from '@mui/material/Link';
 
 // Small constant to prevent division by zero
 const EPSILON = 1e-7;
@@ -14,6 +23,7 @@ function PredictionComponent({ model, featureColumns, targetColumn }) {
   const [inputValues, setInputValues] = useState({});
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState('');
+  const [openWhatIsPredictionModal, setOpenWhatIsPredictionModal] = useState(false);
 
   useEffect(() => {
     // Initialize inputValues state with empty strings for each feature column
@@ -124,28 +134,76 @@ function PredictionComponent({ model, featureColumns, targetColumn }) {
   };
   const formattedTargetColumn = formatTargetName(targetColumn);
 
+  // Modal handlers
+  const handleOpenWhatIsPredictionModal = (event) => {
+    event.preventDefault(); 
+    setOpenWhatIsPredictionModal(true);
+  };
+
+  const handleCloseWhatIsPredictionModal = () => {
+    setOpenWhatIsPredictionModal(false);
+  };
+
   return (
-    <Paper elevation={2} className="container" sx={{ padding: 3 }}>
-      <Typography variant="h2" component="h3" gutterBottom>
-        5. Make a Prediction
-      </Typography>
-      <Typography variant="body1" paragraph>
+    <Paper elevation={2} className="container" sx={{ padding: 3, maxWidth: '80%', marginX: 'auto' }}> {/* MODIFIED: Added maxWidth and marginX */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
+        <Typography variant="h2" component="h3">
+          5. Make a Prediction
+        </Typography>
+        <Link href="#" onClick={handleOpenWhatIsPredictionModal} variant="body2" sx={{ alignSelf: 'center'}}>
+          What's this?
+        </Link>
+      </Box>
+      <Typography variant="body1" paragraph sx={{marginTop: -1}}>
         Enter values for the features below to get a live prediction for {formattedTargetColumn}.
       </Typography>
 
+      {/* "What's This?" Modal for Prediction */}
+      <Dialog
+        open={openWhatIsPredictionModal}
+        onClose={handleCloseWhatIsPredictionModal}
+        aria-labelledby="what-is-prediction-dialog-title"
+      >
+        <DialogTitle id="what-is-prediction-dialog-title">{"What is Making a Prediction?"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Once a model has been 'trained', it has learned patterns from your data. Now, you can give it new, unseen data (the feature values you enter here), and it will use what it learned to make an educated guess, or 'prediction', for the target column.
+            <br/><br/>
+            For example, if you trained a model to predict house prices based on features like size and number of bedrooms, you can now enter the size and bedroom count for a *new* house, and the model will predict its price.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseWhatIsPredictionModal} color="primary" autoFocus>
+            Cool!
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Box component="form" noValidate autoComplete="off">
-        {featureColumns && featureColumns.map(col => (
-          <TextField
-            key={col}
-            label={col}
-            variant="outlined"
-            value={inputValues[col] || ''} // Ensure controlled component
-            onChange={(e) => handleInputChange(col, e.target.value)}
-            type="number" // Use number type for better UX, but still parse parseFloat
-            fullWidth
-            margin="normal"
-          />
-        ))}
+        {featureColumns && featureColumns.map(col => {
+          const tooltipText = `Enter the value for the feature: ${col}. This information will be used by the model to make its prediction.`;
+          return (
+            <TextField
+              key={col}
+              label={col}
+              variant="outlined"
+              value={inputValues[col] || ''} // Ensure controlled component
+              onChange={(e) => handleInputChange(col, e.target.value)}
+              type="number" // Use number type for better UX, but still parse parseFloat
+              fullWidth
+              margin="normal"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Tooltip title={tooltipText} placement="top" arrow>
+                      <HelpOutlineIcon fontSize="small" sx={{ cursor: 'help', color: 'text.secondary' }} />
+                    </Tooltip>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          );
+        })}
         
         {error && (
             <Alert severity="error" sx={{marginTop: 1, marginBottom:1}}>{error}</Alert>

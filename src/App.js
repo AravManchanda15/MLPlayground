@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import * as tf from '@tensorflow/tfjs';
 import DataSourceComponent from './components/DataSourceComponent';
@@ -11,36 +11,124 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import './App.css';
+import { analyzeModelPerformance } from './utils';
 
 const theme = createTheme({
   palette: {
+    mode: 'dark',
     primary: {
-      main: '#3498db',
+      main: '#64b5f6',
     },
     secondary: {
-      main: '#2ecc71',
+      main: '#81c784',
     },
     background: {
-      default: '#f4f7f6',
+      default: '#121212',
+      paper: 'rgba(45, 55, 72, 0.9)',
     },
+    text: {
+      primary: '#E0E0E0',
+      secondary: '#B0B0B0',
+    }
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
     h1: {
-      fontSize: '2.5rem',
-      fontWeight: 500,
-      color: '#2c3e50',
-      marginBottom: '20px',
+      fontSize: '2.8rem',
+      fontWeight: 600,
+      color: '#E0E0E0',
+      marginBottom: '25px',
+      textAlign: 'center',
     },
     h2: {
-      fontSize: '1.8rem',
+      fontSize: '1.7rem',
       fontWeight: 500,
-      color: '#3498db',
-      marginTop: '30px',
+      color: '#bbdefb',
+      marginTop: '25px',
       marginBottom: '15px',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+      paddingBottom: '8px',
+    },
+    h3: {
+        fontSize: '1.4rem',
+        fontWeight: 500,
+        color: '#E0E0E0',
+        marginBottom: '10px',
+    },
+    body1: {
+        color: '#E0E0E0',
+    },
+    caption: {
+        color: '#B0B0B0',
     }
   },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          textTransform: 'none',
+          padding: '8px 18px',
+        },
+        containedPrimary: {
+            backgroundColor: '#64b5f6',
+            color: '#000',
+            '&:hover': {
+                backgroundColor: '#42a5f5',
+            }
+        },
+        containedSecondary: {
+            backgroundColor: '#81c784',
+            color: '#000',
+             '&:hover': {
+                backgroundColor: '#66bb6a',
+            }
+        }
+      }
+    },
+    MuiPaper: {
+        styleOverrides: {
+            root: {
+                backgroundColor: 'rgba(30, 40, 50, 0.92)',
+                padding: '20px',
+                // ADDED: Ensure Recharts text inside Paper components is visible
+                '& .recharts-text, & .recharts-label, & .recharts-legend-item-text, & .recharts-cartesian-axis-tick-value': {
+                    fill: '#B0B0B0', // Match theme.palette.text.secondary
+                },
+            }
+        }
+    },
+    MuiInputLabel: {
+        styleOverrides: {
+            root: {
+                color: '#B0B0B0',
+            }
+        }
+    },
+    MuiOutlinedInput: {
+        styleOverrides: {
+            root: {
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255,255,255,0.23)',
+                },
+                 '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255,255,255,0.5)',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#64b5f6',
+                },
+            }
+        }
+    }
+  }
 });
 
 // Small constant to prevent division by zero
@@ -65,6 +153,7 @@ function App() {
   const [trainedModel, setTrainedModel] = useState(null);
   const [trainingLogs, setTrainingLogs] = useState([]);
   const [results, setResults] = useState(null); // { mae, rSquared, predictions }
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false); // State for welcome modal
 
   const MAX_ROWS = 5000;
   const MAX_COLS = 20;
@@ -234,7 +323,7 @@ function App() {
       setTrainingProgress(100);
 
       // Generate results after training
-      generateResults(model, normalizedFeatureTensor, targetTensor, targetMin, targetMax);
+      generateResults(model, normalizedFeatureTensor, targetTensor, targetMin, targetMax, featureTensor);
 
     } catch (e) {
       console.error("Training error:", e);
@@ -244,59 +333,108 @@ function App() {
     }
   };
 
-  const generateResults = (model, normalizedFeatureTensor, originalTargetTensor, targetMin, targetMax) => {
+  const generateResults = (model, normalizedFeatureTensor, originalTargetTensor, targetMin, targetMax, originalFeatureTensor) => {
     tf.tidy(() => {
       const predictionsTensorNormalized = model.predict(normalizedFeatureTensor);
       // Denormalize predictions
-      const predictionsTensor = predictionsTensorNormalized.mul(targetMax.sub(targetMin)).add(targetMin);
+      const predictionsTensor = predictionsTensorNormalized.mul(targetMax.sub(targetMin).add(EPSILON)).add(targetMin);
 
       const actualValues = originalTargetTensor.arraySync().flat();
       const predictedValues = predictionsTensor.arraySync().flat();
 
-      if (actualValues.length !== predictedValues.length || actualValues.length === 0) {
-        console.error("Mismatch in actual and predicted values length or no data to evaluate.");
-        setError("Could not generate results due to data mismatch or insufficient data.");
-        setResults(null); // Clear previous results
-        return;
-      }
-      
-      // Calculate Mean Absolute Error (MAE)
-      let maeSum = 0;
-      for (let i = 0; i < actualValues.length; i++) {
-        maeSum += Math.abs(actualValues[i] - predictedValues[i]);
-      }
-      const mae = actualValues.length > 0 ? maeSum / actualValues.length : 0;
+      // Calculate MAE
+      const mae = tf.metrics.meanAbsoluteError(originalTargetTensor, predictionsTensor).dataSync()[0];
 
       // Calculate R-squared
-      const meanActual = actualValues.reduce((a, b) => a + b, 0) / actualValues.length;
-      const ssTot = actualValues.reduce((sum, val) => sum + Math.pow(val - meanActual, 2), 0);
-      const ssRes = actualValues.reduce((sum, val, i) => sum + Math.pow(val - predictedValues[i], 2), 0);
+      const meanTarget = originalTargetTensor.mean();
+      const totalSumOfSquares = originalTargetTensor.sub(meanTarget).square().sum();
+      const residualSumOfSquares = originalTargetTensor.sub(predictionsTensor).square().sum();
+      const rSquared = tf.scalar(1).sub(residualSumOfSquares.div(totalSumOfSquares.add(EPSILON))).dataSync()[0];
+
+      // Calculate MSE
+      const mse = tf.metrics.meanSquaredError(originalTargetTensor, predictionsTensor).dataSync()[0];
+      // Calculate RMSE
+      const rmse = Math.sqrt(mse);
+
+      // Calculate target statistics
+      const targetValuesArray = originalTargetTensor.arraySync().flat();
+      const targetMean = targetValuesArray.reduce((acc, val) => acc + val, 0) / targetValuesArray.length;
+      const targetMaxVal = Math.max(...targetValuesArray);
+      const targetMinVal = Math.min(...targetValuesArray);
+      const targetRange = targetMaxVal - targetMinVal;
       
-      // Handle ssTot = 0 case (e.g., all target values are the same)
-      const rSquared = ssTot === 0 ? (ssRes === 0 ? 1 : 0) : 1 - (ssRes / ssTot);
-      
+      const targetStats = {
+        targetMean: targetMean === 0 ? EPSILON : targetMean, // Avoid division by zero in utils
+        targetRange: targetRange === 0 ? EPSILON : targetRange, // Avoid division by zero in utils
+        targetMax: targetMaxVal,
+        targetMin: targetMinVal
+      };
+
+      const rawMetrics = { mae, rSquared, mse, rmse };
+      const analysisOutput = analyzeModelPerformance(rawMetrics, targetStats, config.targetColumn);
+
       const plotData = actualValues.map((actual, i) => ({
-          actual: actual,
-          predicted: predictedValues[i]
+        actual: actual,
+        predicted: predictedValues[i],
       }));
 
       setResults({
         mae,
         rSquared,
+        mse,
+        rmse,
         plotData,
-        targetColumn: config.targetColumn
+        targetColumn: config.targetColumn,
+        analysis: analysisOutput,
+        inputFeatures: config.featureColumns,
+        actualValues,
+        predictedValues
       });
     });
   };
 
+  // Effect to check for first visit and show welcome modal
+  useEffect(() => {
+    const alreadyVisited = localStorage.getItem('hasVisitedMLPlayground');
+    if (!alreadyVisited) {
+      setShowWelcomeModal(true);
+      localStorage.setItem('hasVisitedMLPlayground', 'true');
+    }
+  }, []);
+
+  const handleCloseWelcomeModal = () => {
+    setShowWelcomeModal(false);
+    // Here you could trigger a tour if a "Show Me How" button was clicked
+  };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth="lg">
+      <Container maxWidth="md"> {/* Modified: Changed maxWidth from "lg" to "md" for smaller overall container */}
         <Typography variant="h1" component="h1" gutterBottom align="center">
           ML Playground
         </Typography>
+
+        {/* Welcome Modal */}
+        <Dialog
+          open={showWelcomeModal}
+          onClose={handleCloseWelcomeModal}
+          aria-labelledby="welcome-dialog-title"
+          aria-describedby="welcome-dialog-description"
+        >
+          <DialogTitle id="welcome-dialog-title">{"Welcome to ML Playground!"}</DialogTitle>
+          <DialogContent>
+            <DialogContentText id="welcome-dialog-description">
+              Learn the basics of training a machine learning model by uploading your data (or using our samples), configuring a model, and seeing its predictions. No prior experience needed!
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseWelcomeModal} color="primary" autoFocus>
+              Let's Get Started!
+            </Button>
+            {/* Optionally, add a "Show Me How" button here */}
+          </DialogActions>
+        </Dialog>
 
         {error && (
           <Alert severity="error" style={{ marginBottom: '20px' }} onClose={() => setError('')}>
