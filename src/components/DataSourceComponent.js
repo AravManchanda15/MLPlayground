@@ -20,7 +20,7 @@ const publicUrl = process.env.PUBLIC_URL || ''; // Fallback to empty string if P
 const sampleDatasets = [
   { name: "Predict Car MPG", path: `${publicUrl}/sample1.csv` },
   { name: "Predict Medical Costs", path: `${publicUrl}/sample2.csv` },
-  { name: "Predict House Prices", "path": `${publicUrl}/sample3.csv` },
+  { name: "Predict Taco Sales", "path": `${publicUrl}/sample3.csv` },
 ];
 
 function DataSourceComponent({ onDataLoaded, setGlobalError }) {
@@ -179,7 +179,7 @@ function DataSourceComponent({ onDataLoaded, setGlobalError }) {
           </TableContainer>
         </Box>
       )}
-    </Paper>
+    </Paper> 
   );
 }
 
